@@ -103,6 +103,54 @@ API.txt for details.
 		return r.join("");
 	}
 
+	// MomentDate is taken from an unapproved pull request to Flot
+	// https://github.com/flot/flot/pull/1347/files
+
+	// var moment = require('moment-timezone');
+
+	function MomentDate(ts, tz) {
+		this.tz = tz;
+		this.mt = moment.tz(ts, tz);
+	}
+
+	MomentDate.prototype.getDate = function() { return this.mt.date(); };
+
+	MomentDate.prototype.setDate = function(date) { this.mt.date(date); };
+
+	MomentDate.prototype.getDay = function() { return this.mt.day(); };
+
+	MomentDate.prototype.setDay = function(day) { this.mt.day(date); };
+
+	MomentDate.prototype.getFullYear = function() { return this.mt.year(); };
+
+	MomentDate.prototype.setFullYear = function(year) { this.mt.year(year); };
+
+	MomentDate.prototype.getHours = function() { return this.mt.hour(); };
+
+	MomentDate.prototype.setHours = function(hours) { this.mt.hour(hours); };
+
+	MomentDate.prototype.getMilliseconds = function() { return this.mt.millisecond(); };
+
+	MomentDate.prototype.setMilliseconds = function(msec) { this.mt.millisecond(msec); };
+
+	MomentDate.prototype.getMinutes = function() { return this.mt.minute(); };
+
+	MomentDate.prototype.setMinutes = function(min) { this.mt.minute(min); };
+
+	MomentDate.prototype.getMonth = function() { return this.mt.month(); };
+
+	MomentDate.prototype.setMonth = function(month) { this.mt.month(month); };
+
+	MomentDate.prototype.getSeconds = function() { return this.mt.second(); };
+
+	MomentDate.prototype.setSeconds = function(sec) { this.mt.second(sec); };
+
+	MomentDate.prototype.getTime = function() { return this.mt.valueOf(); };
+
+	MomentDate.prototype.setTime = function(unixOffset) { this.mt = moment.tz(unixOffset, this.tz); };
+
+	MomentDate.prototype.strftime = null;
+
 	// To have a consistent view of time-based data independent of which time
 	// zone the client happens to be in we need a date-like object independent
 	// of time zones.  This is done through a wrapper that only calls the UTC
@@ -154,6 +202,8 @@ API.txt for details.
 			d.setTimezone(opts.timezone);
 			d.setTime(ts);
 			return d;
+		} else if (typeof moment != "undefined" && typeof moment.tz != "undefined") {
+			return new MomentDate(ts, opts.timezone);
 		} else {
 			return makeUtcWrapper(new Date(ts));
 		}
@@ -320,7 +370,6 @@ API.txt for details.
 						var prev;
 
 						do {
-
 							prev = v;
 							v = d.getTime();
 							ticks.push(v);
@@ -350,7 +399,26 @@ API.txt for details.
 							} else {
 								d.setTime(v + step);
 							}
+
+
 						} while (v < axis.max && v != prev);
+
+						// If ticks straddle a dst boundary, the above algorithm fails to account for the offset
+						// change after the boundary. Correct for this:
+						if (typeof d.mt !== "undefined") {
+							var adj = 0;
+							for (var i = 0; i < ticks.length - 1; i++) {
+								var tickOne = moment.tz(ticks[i], d.tz);
+								var tickTwo = moment.tz(ticks[i + 1], d.tz);
+								var offsetOne = tickOne.utcOffset() * 60 * 1000;
+								var offsetTwo = tickTwo.utcOffset() * 60 * 1000;
+								offsetDiff = offsetOne - offsetTwo;
+								if (offsetDiff && step > Math.abs(offsetDiff))
+									adj += offsetDiff;
+								tickTwo.add(adj, 'ms');
+								ticks[i + 1] = tickTwo.valueOf();
+							}
+						}
 
 						return ticks;
 					};
