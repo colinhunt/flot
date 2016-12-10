@@ -119,7 +119,7 @@ API.txt for details.
 
 	MomentDate.prototype.getDay = function() { return this.mt.day(); };
 
-	MomentDate.prototype.setDay = function(day) { this.mt.day(date); };
+	MomentDate.prototype.setDay = function(day) { this.mt.day(day); };
 
 	MomentDate.prototype.getFullYear = function() { return this.mt.year(); };
 
@@ -365,6 +365,11 @@ API.txt for details.
 							d.setMonth(0);
 						}
 
+						// we want the hour ticks to not miss midnight
+						// if the start hour is not divisible by the step multiple, move it back to midnight
+						if (unit == "hour" && d.getHours() % tickSize)
+							d.setHours(0)
+
 						var carry = 0;
 						var v = Number.NaN;
 						var prev;
@@ -403,21 +408,37 @@ API.txt for details.
 
 						} while (v < axis.max && v != prev);
 
-						// If ticks straddle a dst boundary, the above algorithm fails to account for the offset
-						// change after the boundary. Correct for this:
+						// If ticks straddle a dst boundary, the above algorithm fails to 
+						// account for the offset change after the boundary. Correct for this:
+						// exclude months, quarters, and years because they do not need adjustment
+							console.log(`unit: ${tickSize} ${unit}`)
 						if (typeof d.mt !== "undefined") {
-							var adj = 0;
+							console.log("correcting")
+							var correctedTicks = [ticks[0]]
+							var correction = 0;
 							for (var i = 0; i < ticks.length - 1; i++) {
-								var tickOne = moment.tz(ticks[i], d.tz);
-								var tickTwo = moment.tz(ticks[i + 1], d.tz);
-								var offsetOne = tickOne.utcOffset() * 60 * 1000;
-								var offsetTwo = tickTwo.utcOffset() * 60 * 1000;
-								offsetDiff = offsetOne - offsetTwo;
-								if (offsetDiff && step > Math.abs(offsetDiff))
-									adj += offsetDiff;
-								tickTwo.add(adj, 'ms');
-								ticks[i + 1] = tickTwo.valueOf();
+								var tick1 = moment.tz(ticks[i], d.tz);
+								var tick2 = moment.tz(ticks[i + 1], d.tz);
+								var offset1 = tick1.utcOffset() * 60 * 1000;
+								var offset2 = tick2.utcOffset() * 60 * 1000;
+								var diff = offset1 - offset2;
+
+								// If the offset changed and step is greater than the change, 
+								// update current offset
+								if (diff && step > Math.abs(diff))
+									correction += diff;
+
+								if (["month", "quarter", "year"].includes(unit))
+									tick2 = tick2.hours(0).minutes(0).seconds(0);
+								else
+									tick2.add(correction, 'ms');
+
+								// Only push tick if adjusting it didn't change its offset,
+								// to avoid crowding the tick that wasn't adjusted
+								if (tick2.utcOffset() * 60 * 1000 == offset2)
+									correctedTicks.push(tick2.valueOf());
 							}
+							ticks = correctedTicks;
 						}
 
 						return ticks;
