@@ -419,23 +419,23 @@ API.txt for details.
 							for (var i = 0; i < ticks.length - 1; i++) {
 								var tick1 = moment.tz(ticks[i], d.tz);
 								var tick2 = moment.tz(ticks[i + 1], d.tz);
-								var offset1 = tick1.utcOffset() * 60 * 1000;
-								var offset2 = tick2.utcOffset() * 60 * 1000;
+								var offset1 = tick1.utcOffset();
+								var offset2 = tick2.utcOffset();
 								var diff = offset1 - offset2;
 
 								// If the offset changed and step is greater than the change, 
 								// update current offset
-								if (diff && step > Math.abs(diff))
+								if (diff && step > Math.abs(diff * 60 * 1000))
 									correction += diff;
 
 								if (["month", "quarter", "year"].includes(unit))
 									tick2 = tick2.hours(0).minutes(0).seconds(0);
 								else
-									tick2.add(correction, 'ms');
+									tick2.add(correction, 'minutes');
 
 								// Only push tick if adjusting it didn't change its offset,
 								// to avoid crowding the tick that wasn't adjusted
-								if (tick2.utcOffset() * 60 * 1000 == offset2)
+								if (tick2.utcOffset() == offset2)
 									correctedTicks.push(tick2.valueOf());
 							}
 							ticks = correctedTicks;
