@@ -15,13 +15,15 @@
 
 	function multiplesOf(multiple, unit, t) {
 		let overflow = overflowValueOf[unit]
-		let i = 0
+		
 		let multiples = []
 		if (unit == "days") {
 			overflow = t.daysInMonth()
+		} else if (unit == "years") {
+			overflow = multiple
 		}
 
-		for (; i < overflow; i += multiple)
+		for (let i = 0; i < overflow; i += multiple)
 			multiples.push(i)
 
 		multiples.push(overflow)
@@ -37,11 +39,27 @@
 		}, [])
 	}
 
-	function setUnit(t, unit, value) {
-		if (unit == "days")
+	function increment(t, unit, value) {
+		if (unit == "years")
+			t.add(value, unit)
+		else if (unit == "days")
 			t.date(value + 1)
 		else
 			t.set(unit, value)
+	}
+
+	function getUnit(time, unit) {
+		if (unit == "days")
+			return time.date() - 1
+		return time.get(unit)
+	}
+
+
+	function getStartTick(time, unit, multiple) {
+		let start = time.clone()
+		start.startOf(unit)
+		for (; getUnit(start, unit) % multiple; start.subtract(1, unit)) {}
+		return start;
 	}
 
 	function init(plot) {
@@ -52,10 +70,12 @@
 			durations.splice(durations.length, 0, ...factorsOf(maxValue).map(f => {return {[units[i]]: f}}))
 		};
 
+
 		// console.log(JSON.stringify(durations))
 
 		plot.hooks.processOptions.push(function (plot, options) {
 			$.each(plot.getAxes(), function(axisName, axis) {
+				const yearMultiples = [1, 2, 5]
 
 				let opts = axis.options;
 
@@ -69,30 +89,35 @@
 
 					let d = durations.find(d => {return moment.duration(d).valueOf() > delta / 2})
 					if (!d)
-						d = durations[durations.length - 1]
+						for (let i = 1; moment.duration(d).valueOf() <= delta / 2; i*=10) {
+							for (const m of yearMultiples) {
+							 	d = {"years": i*m}
+								if (moment.duration(d).valueOf() > delta / 2) break;
+							}
+						}
 
-					let unit = Object.entries(d)[0][0]
-					let multiple = Object.entries(d)[0][1]
+					let unit = Object.keys(d)[0]
+					let multiple = d[unit]
 
+					axis.tickSize = [multiple, unit]
+					
 					// console.log(unit)
 					// console.log(multiple)
+					let start = getStartTick(min, unit, multiple)
+					let ticks = [start.clone()]
 
-					setUnit(min, unit, 0)
-					min.startOf(unit)
-
-					let ticks = [min.clone()]
-
-					for (let t = min.clone(); t.isSameOrBefore(max);) {
+					for (let t = ticks[0]; t.isSameOrBefore(max);) {
 						// rotate through multiples, setting the unit value of t
 						// each iteration we get a new multiples array, last value will cause t to bubble up to the next higher unit
 						// (example: unit = hours, multiples = [0, 12, 24], we set hour to 0, then 12, then 24, which causes t to advance to the next day, then repeat)
-						// console.log(multiple)
-						// console.log(unit)
-						// console.log(multiplesOf(multiple, unit, min))
-						// console.log(t.format())
-						// console.log(ticks.length)
+						console.log(`multiple: ${multiple}`)
+						console.log(`unit: ${unit}`)
+						console.log(multiplesOf(multiple, unit, t))
+						console.log(`start: ${start.format()}`)
+						console.log(`t: ${t.format()}`)
+						console.log(`tick length: ${ticks.length}`)
 						for (const m of multiplesOf(multiple, unit, t)) {
-							setUnit(t, unit, m)
+							increment(t, unit, m)
 							let space = t.diff(ticks[ticks.length - 1], unit)
 						
 							if (space < multiple * 0.7)
