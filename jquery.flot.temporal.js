@@ -14,24 +14,6 @@
     const durations = [];
     const overflowValueOf = {};
 
-    function multiplesOf(multiple, unit, t) {
-        let overflow = overflowValueOf[unit];
-
-        let multiples = [];
-        if (unit == "days") {
-            overflow = t.daysInMonth()
-        } else if (unit == "years") {
-            overflow = multiple
-        }
-
-        for (let i = 0; i < overflow; i += multiple)
-            multiples.push(i)
-
-        multiples.push(overflow);
-
-        return multiples.slice(1)
-    }
-
     function factorsOf(n) {
         return [...new Array(n).keys()].reduce((acc, v, i) => {
             if (n % i == 0)
@@ -40,9 +22,10 @@
         }, [])
     }
 
-    function increment(time, unit, value) {
-        for (; getUnit(time, unit) % multiple; time.add(1, unit)) {
-        }
+    function increment(time, unit, multiple) {
+        do {
+            time.add(1, unit);
+        } while (getUnit(time, unit) % multiple);
     }
 
     function getUnit(time, unit) {
@@ -63,7 +46,6 @@
     function log(multiple, unit, t, start, ticks) {
         console.log(`multiple: ${multiple}`);
         console.log(`unit: ${unit}`);
-        console.log(multiplesOf(multiple, unit, t));
         console.log(`start: ${start.format()}`);
         console.log(`t: ${t.format()}`);
         console.log(`tick length: ${ticks.length}`)
@@ -71,14 +53,13 @@
 
     function init(plot) {
         // init durations & overflowValueOf
-        for (var i = 0; i < units.length - 1; i++) {
+        for (let i = 0; i < units.length - 1; i++) {
             let maxValue = moment.duration(1, units[i + 1]).as(units[i]);
             overflowValueOf[units[i]] = maxValue;
             durations.splice(durations.length, 0, ...factorsOf(maxValue).map(f => {
                 return {[units[i]]: f}
             }))
         }
-        // console.log(JSON.stringify(durations))
 
         function getDurations(delta) {
             let d = durations.find(d => {
@@ -123,7 +104,6 @@
                         // (example: unit = hours, multiples = [0, 12, 24], we set hour to 0, then 12, then 24, which causes t to advance to the next day, then repeat)
                         log(multiple, unit, t, start, ticks);
 
-                        // for (const m of multiplesOf(multiple, unit, t)) {
                         increment(t, unit, multiple);
                         let space = t.diff(ticks[ticks.length - 1], unit);
 
@@ -132,14 +112,15 @@
 
                         ticks.push(t.clone())
                     }
+                    return ticks.map(t => {
+                        return t.valueOf()
+                    });
                 };
-                return ticks.map(t => {
-                    return t.valueOf()
-                });
-            });
-            axis.tickFormatter = function (v, axis) {
 
-            };
+                axis.tickFormatter = function (v, axis) {
+
+                };
+            });
         });
     }
 
