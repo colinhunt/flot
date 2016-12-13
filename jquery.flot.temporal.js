@@ -6,12 +6,20 @@
             timeformat: null,   // format string to use
             twelveHourClock: false, // 12 or 24 time in time mode
             monthNames: null,   // list of names of months
-            tolerance: 0.7,
+            tolerance: 0.5,
         }
     };
 
     const units = ["seconds", "minutes", "hours", "days", "months", "years"];
-    const durations = [];
+    let durations;
+
+    function initDurations() {
+        durations = units.map((u, i) => {
+            return factorsOf(maxValueOfUnit(i)).map(f => {
+                return {[u]: f}
+            })
+        }).reduce((a, l) => a.concat(l), [] );
+    }
 
     function factorsOf(n) {
         return [...new Array(n).keys()].reduce((acc, v, i) => {
@@ -19,6 +27,24 @@
                 acc.push(i);
             return acc
         }, [])
+    }
+
+    function maxValueOfUnit(i) {
+        if (units[i + 1])
+            return moment.duration(1, units[i + 1]).as(units[i]);
+        return 100000;
+    }
+
+    function findDuration(delta) {
+        if (!durations) initDurations();
+        for (const d of durations)
+            if (moment.duration(d).valueOf() > delta / 2) return d;
+    }
+
+    function getStartTick(time, unit, multiple) {
+        let start = time.clone().startOf(unit);
+        nextMultiple(start, unit, multiple, -1);
+        return start;
     }
 
     function nextMultiple(time, unit, multiple, step=1) {
@@ -31,13 +57,6 @@
         return time.get(unit)
     }
 
-
-    function getStartTick(time, unit, multiple) {
-        let start = time.clone().startOf(unit);
-        nextMultiple(start, unit, multiple, -1);
-        return start;
-    }
-
     function log(multiple, unit, t, min, start, ticks) {
         console.log(`multiple: ${multiple}`);
         console.log(`unit: ${unit}`);
@@ -48,42 +67,6 @@
     }
 
     function init(plot) {
-        // init durations
-        // for (let i = 0; i < units.length - 1; i++) {
-        //     let maxValue = moment.duration(1, units[i + 1]).as(units[i]);
-        //     durations.splice(durations.length, 0, ...factorsOf(maxValue).map(f => {
-        //         return {[units[i]]: f}
-        //     }))
-        // }
-
-        function* durations() {
-            function maxValueOfUnit(i) {
-                if (units[i] == "years")
-                    return 1000;
-                return moment.duration(1, units[i + 1]).as(units[i]);
-            }
-
-            for (let i = 0; i < units.length - 1; i++) {
-                for (const f of factorsOf(maxValueOfUnit(i)))
-                    yield {[units[i]]: f}
-            }
-            // for (let i = 1; i <= 1000; i *= 10)
-            //     yieldDurations(10, ["years"], 0, i)
-        }
-
-        function findDuration(delta) {
-            return durations().find(d => {
-                return moment.duration(d).valueOf() > delta / 2;
-            });
-
-            // for (let i = 1; !d; i *= 10) {
-            //     d = factorsOf(10).map(f => {
-            //         return {[units[units.length - 1]]: i * f}
-            //     }).find(check);
-            // }
-            // return d;
-        }
-
         plot.hooks.processOptions.push(function (plot, options) {
             $.each(plot.getAxes(), function (axisName, axis) {
                 let opts = axis.options;
