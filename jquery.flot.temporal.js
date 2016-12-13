@@ -6,7 +6,7 @@
             timeformat: null,   // format string to use
             twelveHourClock: false, // 12 or 24 time in time mode
             monthNames: null,   // list of names of months
-            tolerance: 0.5,
+            tolerance: 0.7,
         }
     };
 
@@ -39,18 +39,48 @@
 
     function generateTicks(min, max, {unit, multiple}, tolerance) {
         const start = getStartTick(min, unit, multiple);
-        let ticks = [start.clone()];
-        for (let t = ticks[0]; t.isSameOrBefore(max);) {
-            log(multiple, unit, t, min, start, ticks);
-            nextMultiple(t, unit, multiple);
+        let ticks = [start];
+        for (let tick = start.clone(); tick.isSameOrBefore(max);) {
+            log(multiple, unit, tick, min, start, ticks);
 
-            const space = t.diff(ticks[ticks.length - 1], unit);
-            if (space < multiple * tolerance) 
-                ticks.pop();
+            setToNextMultiple(tick, unit, multiple);
 
-            ticks.push(t.clone())
+            addTick(ticks, tick, unit, multiple, tolerance)
         }
         return ticks.map(t => {return t.valueOf()});
+    }
+
+    function getStartTick(tick, unit, multiple) {
+        let start = tick.clone().startOf(unit);
+        setToNextMultiple(start, unit, multiple, step=-1);
+        return start;
+    }
+
+    function setToNextMultiple(tick, unit, multiple, step=1) {
+        do { tick.add(step, unit); } while (getUnit(tick, unit) % multiple);
+    }
+
+    function addTick(ticks, tick, unit, multiple, tolerance) {
+        const space = tick.diff(ticks[ticks.length - 1], unit);
+        if (space < multiple * tolerance) {
+            if (unit == "hours")
+                return;   // clobber this tick
+            ticks.pop();  // clobber the last tick
+        }
+        ticks.push(tick.clone());
+    }
+
+    function getUnit(tick, unit) {
+        if (unit == "days")
+            return tick.date() - 1;
+        return tick.get(unit)
+    }
+
+    function findDuration(delta) {
+        if (!durations) initDurations();
+        for (const d of durations)
+            if (moment.duration(d).valueOf() > delta / 2) 
+                return {unit: Object.keys(d)[0], multiple: d[Object.keys(d)[0]]};
     }
 
     function initDurations() {
@@ -69,29 +99,6 @@
         if (units[i + 1])
             return moment.duration(1, units[i + 1]).as(units[i]);
         return 100000;
-    }
-
-    function findDuration(delta) {
-        if (!durations) initDurations();
-        for (const d of durations)
-            if (moment.duration(d).valueOf() > delta / 2) 
-                return {unit: Object.keys(d)[0], multiple: d[Object.keys(d)[0]]};
-    }
-
-    function getStartTick(time, unit, multiple) {
-        let start = time.clone().startOf(unit);
-        nextMultiple(start, unit, multiple, step=-1);
-        return start;
-    }
-
-    function nextMultiple(time, unit, multiple, step=1) {
-        do { time.add(step, unit); } while (getUnit(time, unit) % multiple);
-    }
-
-    function getUnit(time, unit) {
-        if (unit == "days")
-            return time.date() - 1;
-        return time.get(unit)
     }
 
     function log(multiple, unit, t, min, start, ticks) {
