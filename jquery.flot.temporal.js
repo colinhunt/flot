@@ -13,6 +13,46 @@
     const units = ["seconds", "minutes", "hours", "days", "months", "years"];
     let durations;
 
+    function init(plot) {
+        plot.hooks.processOptions.push(function (plot, options) {
+            $.each(plot.getAxes(), function (axisName, axis) {
+                let opts = axis.options;
+
+                if (opts.mode != "temporal")
+                    return;
+
+                axis.tickGenerator = function (axis) {
+                    return generateTicks(
+                              min = moment.tz(axis.min, opts.timezone),
+                              max = moment.tz(axis.max, opts.timezone),
+                         duration = findDuration(Math.floor(axis.delta)),
+                        tolerance = opts.tolerance
+                    );
+                };
+
+                axis.tickFormatter = function (v, axis) {
+
+                };
+            });
+        });
+    }
+
+    function generateTicks(min, max, {unit, multiple}, tolerance) {
+        let start = getStartTick(min, unit, multiple);
+        let ticks = [start.clone()];
+        for (let t = ticks[0]; t.isSameOrBefore(max);) {
+            log(multiple, unit, t, min, start, ticks);
+            nextMultiple(t, unit, multiple);
+
+            let space = t.diff(ticks[ticks.length - 1], unit);
+            if (space < multiple * tolerance) 
+                ticks.pop();
+
+            ticks.push(t.clone())
+        }
+        return ticks.map(t => {return t.valueOf()});
+    }
+
     function initDurations() {
         durations = units.map((u, i) => {
             return factorsOf(maxValueOfUnit(i)).map(f => {
@@ -65,46 +105,6 @@
         console.log(`start: ${start.format()}`);
         console.log(`t: ${t.format()}`);
         console.log(`tick length: ${ticks.length}`)
-    }
-
-    function generateTicks(min, max, {unit, multiple}, tolerance) {
-        let start = getStartTick(min, unit, multiple);
-        let ticks = [start.clone()];
-        for (let t = ticks[0]; t.isSameOrBefore(max);) {
-            log(multiple, unit, t, min, start, ticks);
-            nextMultiple(t, unit, multiple);
-
-            let space = t.diff(ticks[ticks.length - 1], unit);
-            if (space < multiple * tolerance) 
-                ticks.pop();
-
-            ticks.push(t.clone())
-        }
-        return ticks.map(t => {return t.valueOf()});
-    }
-
-    function init(plot) {
-        plot.hooks.processOptions.push(function (plot, options) {
-            $.each(plot.getAxes(), function (axisName, axis) {
-                let opts = axis.options;
-
-                if (opts.mode != "temporal")
-                    return;
-
-                axis.tickGenerator = function (axis) {
-                    return generateTicks(
-                              min = moment.tz(axis.min, opts.timezone),
-                              max = moment.tz(axis.max, opts.timezone),
-                         duration = findDuration(Math.floor(axis.delta)),
-                        tolerance = opts.tolerance
-                    );
-                };
-
-                axis.tickFormatter = function (v, axis) {
-
-                };
-            });
-        });
     }
 
     $.plot.plugins.push({
