@@ -49,27 +49,39 @@
 
     function init(plot) {
         // init durations
-        for (let i = 0; i < units.length - 1; i++) {
-            let maxValue = moment.duration(1, units[i + 1]).as(units[i]);
-            durations.splice(durations.length, 0, ...factorsOf(maxValue).map(f => {
-                return {[units[i]]: f}
-            }))
+        // for (let i = 0; i < units.length - 1; i++) {
+        //     let maxValue = moment.duration(1, units[i + 1]).as(units[i]);
+        //     durations.splice(durations.length, 0, ...factorsOf(maxValue).map(f => {
+        //         return {[units[i]]: f}
+        //     }))
+        // }
+
+        function* durations() {
+            function maxValueOfUnit(i) {
+                if (units[i] == "years")
+                    return 1000;
+                return moment.duration(1, units[i + 1]).as(units[i]);
+            }
+
+            for (let i = 0; i < units.length - 1; i++) {
+                for (const f of factorsOf(maxValueOfUnit(i)))
+                    yield {[units[i]]: f}
+            }
+            // for (let i = 1; i <= 1000; i *= 10)
+            //     yieldDurations(10, ["years"], 0, i)
         }
 
         function findDuration(delta) {
-            function check(d) {
+            return durations().find(d => {
                 return moment.duration(d).valueOf() > delta / 2;
-            }
+            });
 
-            let d = durations.find(check);
-            if (d) return d;
-
-            for (let i = 1; !d; i *= 10) {
-                d = factorsOf(10).map(f => {
-                    return {[units[units.length - 1]]: i * f}
-                }).find(check);
-            }
-            return d;
+            // for (let i = 1; !d; i *= 10) {
+            //     d = factorsOf(10).map(f => {
+            //         return {[units[units.length - 1]]: i * f}
+            //     }).find(check);
+            // }
+            // return d;
         }
 
         plot.hooks.processOptions.push(function (plot, options) {
