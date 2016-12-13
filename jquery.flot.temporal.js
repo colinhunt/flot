@@ -62,11 +62,7 @@
     }
 
     function factorsOf(n) {
-        return [...new Array(n).keys()].reduce((acc, v, i) => {
-            if (n % i == 0)
-                acc.push(i);
-            return acc
-        }, [])
+        return [...Array(n).keys()].filter(i => {return n % i == 0});
     }
 
     function maxValueOfUnit(i) {
