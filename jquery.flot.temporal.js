@@ -38,13 +38,13 @@
     }
 
     function generateTicks(min, max, {unit, multiple}, tolerance) {
-        let start = getStartTick(min, unit, multiple);
+        const start = getStartTick(min, unit, multiple);
         let ticks = [start.clone()];
         for (let t = ticks[0]; t.isSameOrBefore(max);) {
             log(multiple, unit, t, min, start, ticks);
             nextMultiple(t, unit, multiple);
 
-            let space = t.diff(ticks[ticks.length - 1], unit);
+            const space = t.diff(ticks[ticks.length - 1], unit);
             if (space < multiple * tolerance) 
                 ticks.pop();
 
