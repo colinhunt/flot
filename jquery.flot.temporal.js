@@ -12,7 +12,6 @@
 
     const units = ["seconds", "minutes", "hours", "days", "months", "years"];
     const durations = [];
-    const overflowValueOf = {};
 
     function factorsOf(n) {
         return [...new Array(n).keys()].reduce((acc, v, i) => {
@@ -22,10 +21,8 @@
         }, [])
     }
 
-    function increment(time, unit, multiple) {
-        do {
-            time.add(1, unit);
-        } while (getUnit(time, unit) % multiple);
+    function nextMultiple(time, unit, multiple, step=1) {
+        do { time.add(step, unit); } while (getUnit(time, unit) % multiple);
     }
 
     function getUnit(time, unit) {
@@ -36,42 +33,42 @@
 
 
     function getStartTick(time, unit, multiple) {
-        let start = time.clone();
-        start.startOf(unit);
-        for (; getUnit(start, unit) % multiple; start.subtract(1, unit)) {
-        }
+        let start = time.clone().startOf(unit);
+        nextMultiple(start, unit, multiple, -1);
         return start;
     }
 
-    function log(multiple, unit, t, start, ticks) {
+    function log(multiple, unit, t, min, start, ticks) {
         console.log(`multiple: ${multiple}`);
         console.log(`unit: ${unit}`);
+        console.log(`min: ${min.format()}`);
         console.log(`start: ${start.format()}`);
         console.log(`t: ${t.format()}`);
         console.log(`tick length: ${ticks.length}`)
     }
 
     function init(plot) {
-        // init durations & overflowValueOf
+        // init durations
         for (let i = 0; i < units.length - 1; i++) {
             let maxValue = moment.duration(1, units[i + 1]).as(units[i]);
-            overflowValueOf[units[i]] = maxValue;
             durations.splice(durations.length, 0, ...factorsOf(maxValue).map(f => {
                 return {[units[i]]: f}
             }))
         }
 
-        function getDurations(delta) {
-            let d = durations.find(d => {
-                return moment.duration(d).valueOf() > delta / 2
-            });
-            if (!d)
-                for (let i = 1; moment.duration(d).valueOf() <= delta / 2; i *= 10) {
-                    for (const m of [1, 2, 5]) {
-                        d = {"years": i * m};
-                        if (moment.duration(d).valueOf() > delta / 2) break;
-                    }
-                }
+        function findDuration(delta) {
+            function check(d) {
+                return moment.duration(d).valueOf() > delta / 2;
+            }
+
+            let d = durations.find(check);
+            if (d) return d;
+
+            for (let i = 1; !d; i *= 10) {
+                d = factorsOf(10).map(f => {
+                    return {[units[units.length - 1]]: i * f}
+                }).find(check);
+            }
             return d;
         }
 
@@ -86,7 +83,7 @@
                     let min = moment.tz(axis.min, opts.timezone);
                     let max = moment.tz(axis.max, opts.timezone);
                     let delta = Math.floor(axis.delta);
-                    let duration = getDurations(delta);
+                    let duration = findDuration(delta);
 
                     let unit = Object.keys(duration)[0];
                     let multiple = duration[unit];
@@ -102,9 +99,10 @@
                         // rotate through multiples, setting the unit value of t
                         // each iteration we get a new multiples array, last value will cause t to bubble up to the next higher unit
                         // (example: unit = hours, multiples = [0, 12, 24], we set hour to 0, then 12, then 24, which causes t to advance to the next day, then repeat)
-                        log(multiple, unit, t, start, ticks);
+                        log(multiple, unit, t, min, start, ticks);
 
-                        increment(t, unit, multiple);
+                        nextMultiple(t, unit, multiple);
+
                         let space = t.diff(ticks[ticks.length - 1], unit);
 
                         if (space < multiple * opts.tolerance)
