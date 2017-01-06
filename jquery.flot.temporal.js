@@ -51,14 +51,14 @@
   function tickGenerator(axis) {
     const min              = moment.tz(axis.min, axis.options.timezone);
     const max              = moment.tz(axis.max, axis.options.timezone);
-    const [unit, multiple] = findDuration(Math.floor(axis.delta));
+    const [unit, magnitude] = findDuration(Math.floor(axis.delta));
     const tolerance        = axis.options.tolerance || DEFAULT_TOLERANCE;
-    const start            = setToNextMultiple(min.clone().startOf(unit), {step: -1});
+    const start            = setToNextMultiple(min.clone());
 
     let ticks = [start.clone()];
 
     for (let tick = start.clone(); tick.isSameOrBefore(max);) {
-      setToNextMultiple(tick, {step: 1});
+      tick = setToNextMultiple(tick, {step: 1});
       addTick(tick)
     }
     // log(ticks[ticks.length - 1]);
@@ -66,18 +66,29 @@
 
 
     /* Private utility functions */
-    function setToNextMultiple(tick, {step}) {
-      do { tick.add(step, unit); } while (getUnit(tick) % multiple);
-      return tick;
+    function setToNextMultiple(tick) {
+      let tick2 = tick.clone();
+      do { tick2.add(1, unit); } while (getUnit(tick2) % magnitude);
+      tick2 = zeroSubComponents(tick2)
+      return tick2;
+    }
+
+    function zeroSubComponents(tick) {
+      const result = tick.clone()
+      result.startOf(unit)
+      if (result.utcOffset() !== tick.utcOffset()) {
+        return tick;
+      }
+      return result;
     }
 
     function addTick(tick) {
       const space = tick.diff(ticks[ticks.length - 1], unit);
-      if (space < multiple * tolerance) {
-        if (unit == "hours")
-          return;   // clobber this tick
-        ticks.pop();  // clobber the last tick
-      }
+      // if (space < magnitude * tolerance) {
+      //   // if (unit == "hours")
+      //   //   return;   // clobber this tick
+      //   ticks.pop();  // clobber the last tick
+      // }
       ticks.push(tick.clone());
     }
 
@@ -88,13 +99,13 @@
     }
 
     function findDuration(delta) {
-      return durations.find(([unit, multiple]) => {
-        return moment.duration(multiple, unit).valueOf() > delta / 2
+      return durations.find(([unit, magnitude]) => {
+        return moment.duration(magnitude, unit).valueOf() > delta / 2
       }) || durations[durations.length - 1];
     }
 
     function log(t) {
-      console.log(`multiple: ${multiple}`);
+      console.log(`magnitude: ${magnitude}`);
       console.log(`unit: ${unit}`);
       console.log(`min: ${min.format()}`);
       console.log(`start: ${start.format()}`);
